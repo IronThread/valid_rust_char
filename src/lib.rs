@@ -1,87 +1,89 @@
 //! A tiny crate that exports a table with all ranges of unicode scalar values of invalid
 //! characters for a Rust file.
-//! 
-//! This one it's created at build by checking validity with `TokenStream::from_str` with each 
+//!
+//! This one it's created at build by checking validity with `TokenStream::from_str` with each
 //! existing character so,althought this library it's kinda slow to build,the given list will be
 //! the correct one for the version of Rust was built.
 
-use std::ops::RangeInclusive;
 use std::char;
+use std::iter::FusedIterator;
+use std::ops::RangeInclusive;
 
 include!("consts.rs");
 
-fn bsearch_range_table<T: PartialOrd, R: core::ops::RangeBounds<T>>(c1: T, r: &[R]) -> Result<usize, usize> {
+fn bsearch_range_table<T: PartialOrd, R: core::ops::RangeBounds<T>>(
+    c1: T,
+    r: &[R],
+) -> Result<usize, usize> {
     use core::cmp::Ordering::{Equal, Greater, Less};
     use core::ops::Bound::*;
 
     let c = &c1;
 
-    r.binary_search_by(|r| {
-        match (r.start_bound(), r.end_bound()) {
-            (Unbounded, Unbounded) => Equal,
-            (Unbounded, Included(x)) => {
-                if c <= x {
-                    Equal
-                } else {
-                    Greater
-                }
+    r.binary_search_by(|r| match (r.start_bound(), r.end_bound()) {
+        (Unbounded, Unbounded) => Equal,
+        (Unbounded, Included(x)) => {
+            if c <= x {
+                Equal
+            } else {
+                Greater
             }
-            (Unbounded, Excluded(x)) => {
-                if c < x {
-                    Equal
-                } else {
-                    Greater
-                }
+        }
+        (Unbounded, Excluded(x)) => {
+            if c < x {
+                Equal
+            } else {
+                Greater
             }
-            (Included(x), Unbounded) => {
-                if c >= x {
-                    Equal
-                } else {
-                    Less
-                }
+        }
+        (Included(x), Unbounded) => {
+            if c >= x {
+                Equal
+            } else {
+                Less
             }
-            (Excluded(x), Unbounded) => {
-                if c > x {
-                    Equal
-                } else {
-                    Less
-                }
+        }
+        (Excluded(x), Unbounded) => {
+            if c > x {
+                Equal
+            } else {
+                Less
             }
-            (Included(x), Included(y)) => {
-                if c < x {
-                    Less
-                } else if c > y {
-                    Greater
-                } else {
-                    Equal
-                }
+        }
+        (Included(x), Included(y)) => {
+            if c < x {
+                Less
+            } else if c > y {
+                Greater
+            } else {
+                Equal
             }
-            (Excluded(x), Excluded(y)) => {
-                if c <= x {
-                    Less
-                } else if c >= y {
-                    Greater
-                } else {
-                    Equal
-                }
+        }
+        (Excluded(x), Excluded(y)) => {
+            if c <= x {
+                Less
+            } else if c >= y {
+                Greater
+            } else {
+                Equal
             }
-            (Included(x), Excluded(y)) => {
-                if c < x {
-                    Less
-                } else if c >= y {
-                    Greater
-                } else {
-                    Equal
-                }
+        }
+        (Included(x), Excluded(y)) => {
+            if c < x {
+                Less
+            } else if c >= y {
+                Greater
+            } else {
+                Equal
             }
-            (Excluded(x), Included(y)) => {
-                if c <= x {
-                    Less
-                } else if c > y {
-                    Greater
-                } else {
-                    Equal
-                }
+        }
+        (Excluded(x), Included(y)) => {
+            if c <= x {
+                Less
+            } else if c > y {
+                Greater
+            } else {
+                Equal
             }
         }
     })
@@ -108,7 +110,10 @@ impl Iterator for AllUnicode {
 
     #[inline]
     fn next(&mut self) -> Option<char> {
-        self.0.next().or_else(|| self.1.next()).map(char::from_u32)
+        self.0
+            .next()
+            .or_else(|| self.1.next())
+            .and_then(char::from_u32)
     }
 
     #[inline]
@@ -120,14 +125,17 @@ impl Iterator for AllUnicode {
 impl DoubleEndedIterator for AllUnicode {
     #[inline]
     fn next_back(&mut self) -> Option<char> {
-        self.1.next_back().or_else(|| self.0.next_back()).map(char::from_u32)
+        self.1
+            .next_back()
+            .or_else(|| self.0.next_back())
+            .and_then(char::from_u32)
     }
 }
 
 impl ExactSizeIterator for AllUnicode {
     #[inline]
     fn len(&self) -> usize {
-        self.0.len() + self.1.len()
+        self.0.size_hint().0 + self.1.size_hint().0
     }
 }
 
@@ -158,7 +166,7 @@ pub fn all_invalid_rust_char() -> InvalidRustChars {
 /// Iterator created with the function [`all_invalid_rust_char`].
 pub struct InvalidRustChars {
     ranges: &'static [RangeInclusive<u32>],
-    all_chars: AllUnicode
+    all_chars: AllUnicode,
 }
 
 impl Iterator for InvalidRustChars {
@@ -169,9 +177,7 @@ impl Iterator for InvalidRustChars {
         let c1 = self.all_chars.next()?;
         let c = c1 as u32;
 
-        if c < *r.start() {
-            self.next()
-        } else if c > *r.end() {
+        if c < *r.start() || c > *r.end() {
             self.next()
         } else {
             if c == *r.end() {
@@ -194,12 +200,10 @@ impl DoubleEndedIterator for InvalidRustChars {
         let c1 = self.all_chars.next_back()?;
         let c = c1 as u32;
 
-        if c < *r.start() {
-            self.next_back()
-        } else if c > *r.end() {
+        if c < *r.start() || c > *r.end() {
             self.next_back()
         } else {
-            if c == *r.end() {
+            if c == *r.start() {
                 self.ranges = &self.ranges[..self.ranges.len() - 1];
             }
 
@@ -217,9 +221,22 @@ impl ExactSizeIterator for InvalidRustChars {
             None => return 0,
         };
 
-        let diff = r.start() - self.0.start();
+        let diff = r.start()
+            - if self.all_chars.0.is_empty() {
+                if self.all_chars.1.is_empty() {
+                    return 0;
+                } else {
+                    self.all_chars.1.start()
+                }
+            } else {
+                self.all_chars.0.start()
+            };
 
-        self.ranges.iter().fold(diff, |acc, e| acc + (e.end() - e.start())).try_into().expect("16-bit host failed to get the length as an usize.")
+        self.ranges
+            .iter()
+            .fold(diff, |acc, e| acc + (e.end() - e.start()))
+            .try_into()
+            .expect("16-bit host failed to get the length as an usize.")
     }
 }
 
@@ -238,7 +255,7 @@ pub fn all_valid_rust_char() -> ValidRustChars {
 /// Iterator created with the function [`all_valid_rust_char`].
 pub struct ValidRustChars {
     ranges: &'static [RangeInclusive<u32>],
-    all_chars: AllUnicode
+    all_chars: AllUnicode,
 }
 
 impl Iterator for ValidRustChars {
@@ -250,13 +267,13 @@ impl Iterator for ValidRustChars {
         let r = match self.ranges.first() {
             Some(e) => e,
             None => return Some(c1),
-        }; 
+        };
 
         if c >= *r.start() && c < *r.end() {
             self.next()
         } else if c == *r.end() {
             self.ranges = &self.ranges[1..];
-            Some(c1)
+            self.next()
         } else {
             Some(c1)
         }
@@ -277,11 +294,11 @@ impl DoubleEndedIterator for ValidRustChars {
             None => return Some(c1),
         };
 
-        if c >= *r.start() && c < *r.end() {
+        if c > *r.start() && c <= *r.end() {
             self.next_back()
-        } else if c == *r.end() {
+        } else if c == *r.start() {
             self.ranges = &self.ranges[..self.ranges.len() - 1];
-            Some(c1)
+            self.next_back()
         } else {
             Some(c1)
         }
@@ -290,9 +307,17 @@ impl DoubleEndedIterator for ValidRustChars {
 
 impl ExactSizeIterator for ValidRustChars {
     fn len(&self) -> usize {
-        use std::convert::TryInto;
+        use std::convert::{TryFrom, TryInto};
 
-        self.ranges.iter().fold(self.all_chars.len(), |acc, e| acc - (e.end() - e.start())).try_into().expect("16-bit host failed to get the length as an usize.")
+        self.ranges
+            .iter()
+            .fold(
+                u32::try_from(self.all_chars.len())
+                    .expect("16-bit host failed to get the length as an usize."),
+                |acc, e| acc - (e.end() - e.start()),
+            )
+            .try_into()
+            .expect("16-bit host failed to get the length as an usize.")
     }
 }
 
