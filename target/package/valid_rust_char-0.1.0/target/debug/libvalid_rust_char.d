@@ -1,1 +1,0 @@
-C:\Users\Santino\repos\valid_rust_char\target\package\valid_rust_char-0.1.0\target\debug\libvalid_rust_char.rlib: C:\Users\Santino\repos\valid_rust_char\target\package\valid_rust_char-0.1.0\build.rs C:\Users\Santino\repos\valid_rust_char\target\package\valid_rust_char-0.1.0\src\consts.rs C:\Users\Santino\repos\valid_rust_char\target\package\valid_rust_char-0.1.0\src\lib.rs
