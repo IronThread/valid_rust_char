@@ -1,6 +1,6 @@
 [package]
 name = "valid_rust_char" 
-version = "0.1.1"
+version = "0.1.0"
 authors = ["IronThread <santinofuenteskillian@gmail.com>"]
 edition = "2018"
 license = "Unlicense"
@@ -11,3 +11,6 @@ keywords = ["char","unicode","idents"]
 categories = []
 
 [dependencies]
+
+[build-dependencies]
+proc-macro2 = "1"
